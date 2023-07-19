@@ -60,7 +60,13 @@ class GCSSink(RecordSink):
         """Opens a stream for writing to the target cloud object"""
         if not self._gcs_write_handle:
             credentials_path = self.config.get("credentials_file")
-            client = Client() if credentials_path is None else Client.from_service_account_json(credentials_path)
+            credentials_json = self.config.get("credentials_json")
+            if credentials_json:
+                client = Client.from_service_account_info(orjson.loads(credentials_json))
+            elif credentials_path:
+                Client.from_service_account_json(credentials_path)
+            else:
+                Client()
             self._gcs_write_handle = smart_open.open(
                 f'gs://{self.config.get("bucket_name")}/{self.key_name}',
                 "wb",

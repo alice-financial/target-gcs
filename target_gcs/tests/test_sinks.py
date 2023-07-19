@@ -52,8 +52,11 @@ def test_key_name_includes_date_format_if_date_token_used_and_date_format_provid
     )
     assert f"file/{datetime.today().strftime(date_format)}.txt" == subject.key_name
 
-
 def test_key_name_includes_timestamp_if_timestamp_token_used():
     subject = build_sink({"key_naming_convention": "file/{timestamp}.txt"})
     print(subject.key_name)
     assert re.match(r"file/\d+.txt", subject.key_name)
+
+def test_can_use_json_creds():
+    subject = build_sink({"credentials_file": None, "credentials_json": '{ "type": "service_account", "project_id": "foo", "private_key_id": "bar", "private_key": "foo", "client_email": "foo@bar.iam.gserviceaccount.com", "client_id": "123", "auth_uri": "https://accounts.google.com/o/oauth2/auth", "token_uri": "https://oauth2.googleapis.com/token", "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs", "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/foo%40bar.iam.gserviceaccount.com", "universe_domain": "googleapis.com" }'})
+    assert subject.config['credentials_json'] is not None
