@@ -13,6 +13,7 @@ import orjson
 import smart_open
 from google.cloud.storage import Client
 from singer_sdk.sinks import RecordSink
+from singer_sdk.sinks import BatchSink
 
 
 class GCSSink(RecordSink):
@@ -90,3 +91,67 @@ class GCSSink(RecordSink):
         self.gcs_write_handle.write(
             orjson.dumps(record, option=orjson.OPT_APPEND_NEWLINE)
         )
+
+class GCSBatchSink(BatchSink):
+    def __init__(self, target, stream_name, schema, key_properties):
+        super().__init__(
+            target=target,
+            stream_name=stream_name,
+            schema=schema,
+            key_properties=key_properties,
+        )
+
+    @property
+    def output_format(self) -> str:
+        """In the future maybe we will support more formats"""
+        return "jsonl"
+
+    def key_name(self) -> str:
+        """Return the key name."""
+        extraction_timestamp = round(time.time())
+        base_key_name = self.config.get(
+            "key_naming_convention",
+            f"{self.stream_name}_{extraction_timestamp}.{self.output_format}",
+        )
+        prefixed_key_name = (
+            f'{self.config.get("key_prefix", "")}/{base_key_name}'.replace(
+                "//", "/"
+            )
+        ).lstrip("/")
+        date = datetime.today().strftime(self.config.get("date_format", "%Y-%m-%d"))
+        return prefixed_key_name.format_map(
+            defaultdict(
+                str,
+                stream=self.stream_name,
+                date=date,
+                timestamp=extraction_timestamp,
+            )
+        )
+
+    def gcs_write_handle(self) -> FileIO:
+        """Opens a stream for writing to the target cloud object"""
+        credentials_path = self.config.get("credentials_file")
+        credentials_json = self.config.get("credentials_json")
+        if credentials_json:
+            client = Client.from_service_account_info(orjson.loads(credentials_json))
+        elif credentials_path:
+            Client.from_service_account_json(credentials_path)
+        else:
+            Client()
+        handle = smart_open.open(
+            f'gs://{self.config.get("bucket_name")}/{self.key_name()}',
+            "wb",
+            transport_params=dict(
+                client=client
+            ),
+        )
+
+        return handle
+
+    def process_batch(self, context: dict) -> None:
+        """Write out any prepped records and return once fully written."""
+        handle = self.gcs_write_handle()
+        handle.write(
+            orjson.dumps(context["records"], option=orjson.OPT_APPEND_NEWLINE)
+        )
+        handle.close()
