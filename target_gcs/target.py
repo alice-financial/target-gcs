@@ -4,6 +4,7 @@ from singer_sdk import typing as th
 from singer_sdk.target_base import Target
 
 from target_gcs.sinks import GCSSink
+from target_gcs.sinks import GCSBatchSink
 
 
 class TargetGCS(Target):
@@ -17,4 +18,4 @@ class TargetGCS(Target):
         th.Property("key_prefix", th.StringType, required=False),
         th.Property("key_naming_convention", th.StringType, required=False),
     ).to_dict()
-    default_sink_class = GCSSink
+    default_sink_class = GCSBatchSink
