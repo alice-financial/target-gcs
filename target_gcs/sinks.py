@@ -151,7 +151,6 @@ class GCSBatchSink(BatchSink):
     def process_batch(self, context: dict) -> None:
         """Write out any prepped records and return once fully written."""
         handle = self.gcs_write_handle()
-        handle.write(
-            orjson.dumps(context["records"], option=orjson.OPT_APPEND_NEWLINE)
-        )
+        for record in context["records"]:
+            handle.write(orjson.dumps(record, option=orjson.OPT_APPEND_NEWLINE))
         handle.close()
